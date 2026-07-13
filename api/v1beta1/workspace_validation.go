@@ -383,6 +383,13 @@ func (r *ResourceSpec) validateCreateWithTuning(tuning *TuningSpec) (errs *apis.
 	return errs
 }
 
+func gpuProviderFromLabels(labels map[string]string) sku.GPUProvider {
+	if labels != nil && labels["kaito.sh/gpu-provider"] == "amd" {
+		return sku.GPUProviderAMD
+	}
+	return sku.GPUProviderNvidia
+}
+
 func (r *ResourceSpec) validateCreateWithInference(ctx context.Context, inference *InferenceSpec, bypassResourceChecks bool, runtime model.RuntimeName, wsNamespace string) (errs *apis.FieldError) {
 	var presetName, secretName string
 	if inference.Preset != nil {
@@ -471,9 +478,9 @@ func (r *ResourceSpec) validateCreateWithInference(ctx context.Context, inferenc
 
 			for _, node := range nodeList.Items {
 				// Try to get GPU configuration from nvidia.com labels first
-				gpuConfig, err := sku.GetGPUConfigFromNodeLabels(&node)
+				gpuConfig, err := sku.GetGPUConfigFromNodeLabelsForProvider(&node, gpuProviderFromLabels(r.LabelSelector.MatchLabels))
 				if err != nil {
-					errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("Failed to get GPU config from nvidia labels on node %s: %v", node.Name, err)))
+					errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("Failed to get GPU config from %s labels on node %s: %v", gpuProviderFromLabels(r.LabelSelector.MatchLabels), node.Name, err)))
 					return errs
 				}
 
