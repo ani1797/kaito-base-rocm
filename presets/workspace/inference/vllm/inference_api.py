@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import psutil
+
 try:
     import pynvml
 except ImportError:  # ROCm images do not provide NVML.
@@ -428,6 +429,7 @@ def load_lora_adapters(adapters_dir: str) -> LoRAModulePath | None:
 # NVIDIA, while AMD uses the explicit GPU memory budget supplied by the
 # cluster/operator and lets vLLM manage its own cache sizing.
 
+
 def get_max_gpu_memory_utilization(device_index: int = 0) -> float:
     if os.environ.get("GPU_PROVIDER", "nvidia").lower() != "amd" and pynvml is None:
         raise RuntimeError("pynvml is required for NVIDIA runtime image")
@@ -548,7 +550,15 @@ if __name__ == "__main__":
 
         # Return our already-bound socket so vLLM does not try to bind a
         # new one (which would fail with "address already in use").
-        def _patched_setup(setup_args: argparse.Namespace):
+        def _patched_setup(
+            setup_args: argparse.Namespace, *setup_positional, **setup_kwargs
+        ):
+            # vLLM's setup_server signature changes across releases.  In
+            # particular, newer releases pass reuse_port as a keyword.  The
+            # wrapper owns the pre-bound socket, so preserve compatibility with
+            # any additional upstream arguments while intentionally ignoring
+            # bind-related options.
+            del setup_positional, setup_kwargs
             host = getattr(setup_args, "host", "0.0.0.0")
             return f"http://{host}:{setup_args.port}", pre_sock
 
