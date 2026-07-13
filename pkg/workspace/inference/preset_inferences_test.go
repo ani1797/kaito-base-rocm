@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -72,6 +73,17 @@ var flashInferMoeEnvVars = []corev1.EnvVar{
 	{Name: consts.VLLMUseFlashInferMoeMXFP4BF16EnvName, Value: "0"},
 	{Name: consts.VLLMUseFlashInferMoeMXFP4MXFP8EnvName, Value: "0"},
 	{Name: consts.VLLMUseFlashInferMoeMXFP4MXFP8CutlassEnvName, Value: "0"},
+}
+
+func TestGetBaseImageNameUsesRuntimeOverride(t *testing.T) {
+	t.Setenv("KAITO_RUNTIME_IMAGE", "registry.example/kaito-rocm-vllm:dev")
+	assert.Equal(t, "registry.example/kaito-rocm-vllm:dev", GetBaseImageName())
+}
+
+func TestGetBaseImageNameUsesPresetByDefault(t *testing.T) {
+	t.Setenv("KAITO_RUNTIME_IMAGE", "")
+	preset := metadata.MustGet("base")
+	assert.Equal(t, utils.GetPresetImageName(preset.Registry, preset.Name, preset.Tag), GetBaseImageName())
 }
 
 func TestGeneratePresetInference(t *testing.T) {

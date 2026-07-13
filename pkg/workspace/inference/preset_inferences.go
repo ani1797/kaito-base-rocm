@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"time"
 
@@ -451,6 +452,9 @@ func buildBenchmarkStartupProbe(timeout time.Duration, wObj *v1beta1.Workspace, 
 }
 
 func GetBaseImageName() string {
+	if runtimeImage := os.Getenv("KAITO_RUNTIME_IMAGE"); runtimeImage != "" {
+		return runtimeImage
+	}
 	presetObj := metadata.MustGet("base")
 	return utils.GetPresetImageName(presetObj.Registry, presetObj.Name, presetObj.Tag)
 }
