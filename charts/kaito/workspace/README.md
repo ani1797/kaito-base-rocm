@@ -18,7 +18,8 @@ helm install workspace ./charts/kaito/workspace  \
 | affinity                                       | object | `{}`                                                     | Pod affinity rules.                                           |
 | image.pullPolicy                               | string | `"IfNotPresent"`                                         | Allowed values: `Always`, `IfNotPresent`, `Never`.            |
 | image.repository                               | string | `mcr.microsoft.com/aks/kaito/workspace`                  | Controller image repository.                                  |
-| image.tag                                      | string | `"0.10.0"`                                               | Controller image tag.                                         |
+| image.tag                                      | string | `"0.11.0"`                                               | Controller image tag.                                         |
+| image.digest                                   | string | `""`                                                     | Optional immutable image digest appended to the controller image reference. |
 | imagePullSecrets                               | list   | `[]`                                                     | List of image pull secret references (`[{name: <secret>}]`).  |
 | nodeSelector                                   | object | `{"kubernetes.io/os": "linux"}`                          | Controller pod node selector.                                 |
 | podAnnotations                                 | object | `{}`                                                     | Extra annotations added to the controller pod.                |
