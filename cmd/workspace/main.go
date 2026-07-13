@@ -104,6 +104,7 @@ func main() {
 	var featureGates string
 	var defaultNodeImageFamily string
 	var nodeProvisionerType string
+	var gpuProvider string
 	var karpenterNodeClassGroup string
 	var karpenterNodeClassKind string
 	var karpenterNodeClassVersion string
@@ -126,7 +127,8 @@ func main() {
 		"Enable webhook for controller manager. Default is true.")
 	flag.StringVar(&featureGates, "feature-gates", "vLLM=true,disableNodeAutoProvisioning=false", "Enable Kaito feature gates. Default: vLLM=true,disableNodeAutoProvisioning=false.")
 	flag.StringVar(&defaultNodeImageFamily, "default-node-image-family", "", "Default node image family annotation for generated NodeClaims. Supported values: azurelinux, ubuntu. Empty means ubuntu. Unsupported values cause startup failure.")
-	flag.StringVar(&nodeProvisionerType, "node-provisioner", "azure-gpu-provisioner", "Node provisioner type. Supported values: azure-gpu-provisioner, karpenter, byo. Default: azure-gpu-provisioner.")
+	flag.StringVar(&nodeProvisionerType, "node-provisioner", "azure-gpu-provisioner", "node provisioner type. Supported values: azure-gpu-provisioner, karpenter, byo. Default: azure-gpu-provisioner.")
+	flag.StringVar(&gpuProvider, "gpu-provider", "nvidia", "GPU provider. Supported values: nvidia, amd. Default: nvidia.")
 	flag.StringVar(&karpenterNodeClassGroup, "karpenter-node-class-group", "karpenter.azure.com", "Karpenter NodeClass API group. Only used when node-provisioner=karpenter.")
 	flag.StringVar(&karpenterNodeClassKind, "karpenter-node-class-kind", "AKSNodeClass", "Karpenter NodeClass API kind. Only used when node-provisioner=karpenter.")
 	flag.StringVar(&karpenterNodeClassVersion, "karpenter-node-class-version", "v1beta1", "Karpenter NodeClass API version. Only used when node-provisioner=karpenter.")
@@ -152,6 +154,12 @@ func main() {
 		klog.ErrorS(err, "unable to set `feature-gates` flag")
 		exitWithErrorFunc()
 	}
+
+	if gpuProvider != string(sku.GPUProviderNvidia) && gpuProvider != string(sku.GPUProviderAMD) {
+		klog.ErrorS(fmt.Errorf("unsupported GPU provider %q", gpuProvider), "unable to set --gpu-provider")
+		exitWithErrorFunc()
+	}
+	_ = os.Setenv("GPU_PROVIDER", gpuProvider)
 
 	skuHandler, err := sku.GetSKUHandler()
 	if err != nil {

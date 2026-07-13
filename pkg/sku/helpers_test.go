@@ -45,6 +45,13 @@ func TestGetSKUHandler(t *testing.T) {
 	})
 }
 
+func TestGPUProviderFromEnvironment(t *testing.T) {
+	t.Setenv("GPU_PROVIDER", "amd")
+	assert.Equal(t, GPUProviderAMD, GPUProviderFromEnvironment())
+	t.Setenv("GPU_PROVIDER", "nvidia")
+	assert.Equal(t, GPUProviderNvidia, GPUProviderFromEnvironment())
+}
+
 func TestGetGPUConfigFromAMDLabels(t *testing.T) {
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{

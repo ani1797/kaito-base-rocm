@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -71,7 +72,13 @@ func GetGPUConfigBySKU(instanceType string) (*GPUConfig, error) {
 	return config, nil
 }
 
-// GetGPUConfigFromNodeLabelsForProvider extracts GPU configuration using the
+func GPUProviderFromEnvironment() GPUProvider {
+	if strings.EqualFold(os.Getenv("GPU_PROVIDER"), string(GPUProviderAMD)) {
+		return GPUProviderAMD
+	}
+	return GPUProviderNvidia
+}
+
 // provider-specific label contract. AMD labels are supplied by an AMD node
 // labeller or cluster bootstrap configuration.
 func GetGPUConfigFromNodeLabelsForProvider(node *corev1.Node, provider GPUProvider) (*GPUConfig, error) {
