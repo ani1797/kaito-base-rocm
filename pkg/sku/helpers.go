@@ -71,48 +71,71 @@ func GetGPUConfigBySKU(instanceType string) (*GPUConfig, error) {
 	return config, nil
 }
 
-// GetGPUConfigFromNodeLabels extracts GPU configuration from nvidia.com labels on a node.
-func GetGPUConfigFromNodeLabels(node *corev1.Node) (*GPUConfig, error) {
-	gpuProduct, hasGPUProduct := node.Labels[consts.NvidiaGPUProduct]
-	gpuCountStr, hasGPUCount := node.Labels[consts.NvidiaGPUCount]
-	gpuMemoryStr, hasGPUMemory := node.Labels[consts.NvidiaGPUMemory]
-
-	if !hasGPUProduct || !hasGPUCount || !hasGPUMemory {
-		return nil, fmt.Errorf("missing required nvidia.com labels on node %s", node.Name)
+// GetGPUConfigFromNodeLabelsForProvider extracts GPU configuration using the
+// provider-specific label contract. AMD labels are supplied by an AMD node
+// labeller or cluster bootstrap configuration.
+func GetGPUConfigFromNodeLabelsForProvider(node *corev1.Node, provider GPUProvider) (*GPUConfig, error) {
+	var productKey, countKey, memoryKey, architectureKey string
+	var vendor, resourceName string
+	switch provider {
+	case GPUProviderAMD:
+		productKey = "amd.com/gpu.product"
+		countKey = "amd.com/gpu.count"
+		memoryKey = "amd.com/gpu.memory"
+		architectureKey = "amd.com/gpu.arch"
+		vendor = string(GPUProviderAMD)
+		resourceName = "amd.com/gpu"
+	case GPUProviderNvidia:
+		productKey = consts.NvidiaGPUProduct
+		countKey = consts.NvidiaGPUCount
+		memoryKey = consts.NvidiaGPUMemory
+		architectureKey = ""
+		vendor = string(GPUProviderNvidia)
+		resourceName = consts.NvidiaGPU
+	default:
+		return nil, fmt.Errorf("unsupported GPU provider %q", provider)
 	}
 
-	gpuCount, err := strconv.Atoi(gpuCountStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid nvidia.com/gpu.count value on node %s: %s", node.Name, gpuCountStr)
+	product, hasProduct := node.Labels[productKey]
+	countValue, hasCount := node.Labels[countKey]
+	memoryValue, hasMemory := node.Labels[memoryKey]
+	if !hasProduct || !hasCount || !hasMemory {
+		return nil, fmt.Errorf("missing required %s GPU labels on node %s", vendor, node.Name)
 	}
-
-	// nvidia.com/gpu.memory is per-GPU memory in MiB.
-	gpuMemoryMiB, err := strconv.Atoi(gpuMemoryStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid nvidia.com/gpu.memory value on node %s: %s", node.Name, gpuMemoryStr)
+	count, err := strconv.Atoi(countValue)
+	if err != nil || count < 1 {
+		return nil, fmt.Errorf("invalid %s GPU count on node %s: %s", vendor, node.Name, countValue)
 	}
-
-	gpuMemGiB := int64((float64(gpuMemoryMiB)/1024)+0.5) * int64(gpuCount)
-
-	// Parse CUDA compute capability from nvidia.com/cuda.compute.major and nvidia.com/cuda.compute.minor labels.
-	// These are set by the NVIDIA GPU Feature Discovery (GFD) DaemonSet.
-	var cudaComputeCap float64
-	if majorStr, ok := node.Labels[consts.NvidiaCUDAComputeCapMajor]; ok {
-		if major, err := strconv.Atoi(majorStr); err == nil {
-			cudaComputeCap = float64(major)
-			if minorStr, ok := node.Labels[consts.NvidiaCUDAComputeCapMinor]; ok {
-				if minor, err := strconv.Atoi(minorStr); err == nil {
-					cudaComputeCap += float64(minor) / 10.0
-				}
+	memoryMiB, err := strconv.Atoi(memoryValue)
+	if err != nil || memoryMiB < 1 {
+		return nil, fmt.Errorf("invalid %s GPU memory on node %s: %s", vendor, node.Name, memoryValue)
+	}
+	config := &GPUConfig{
+		SKU:             "unknown",
+		GPUCount:        count,
+		GPUModel:        product,
+		GPUVendor:       vendor,
+		GPUResourceName: resourceName,
+		GPUMem:          *resource.NewQuantity(int64((float64(memoryMiB)/1024)+0.5)*int64(count)*consts.GiBToBytes, resource.BinarySI),
+	}
+	if provider == GPUProviderNvidia {
+		var capability float64
+		if major, err := strconv.Atoi(node.Labels[consts.NvidiaCUDAComputeCapMajor]); err == nil {
+			capability = float64(major)
+			if minor, err := strconv.Atoi(node.Labels[consts.NvidiaCUDAComputeCapMinor]); err == nil {
+				capability += float64(minor) / 10
 			}
 		}
+		config.CUDAComputeCapability = capability
 	}
+	if architectureKey != "" {
+		config.GPUArchitecture = node.Labels[architectureKey]
+	}
+	return config, nil
+}
 
-	return &GPUConfig{
-		SKU:                   "unknown", // SKU is not available from node labels
-		GPUCount:              gpuCount,
-		GPUModel:              gpuProduct,
-		GPUMem:                *resource.NewQuantity(gpuMemGiB*consts.GiBToBytes, resource.BinarySI),
-		CUDAComputeCapability: cudaComputeCap,
-	}, nil
+// GetGPUConfigFromNodeLabels retains the NVIDIA-compatible API for callers
+// that have not yet selected a provider explicitly.
+func GetGPUConfigFromNodeLabels(node *corev1.Node) (*GPUConfig, error) {
+	return GetGPUConfigFromNodeLabelsForProvider(node, GPUProviderNvidia)
 }

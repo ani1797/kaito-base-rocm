@@ -45,6 +45,35 @@ func TestGetSKUHandler(t *testing.T) {
 	})
 }
 
+func TestGetGPUConfigFromAMDLabels(t *testing.T) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "amd-node",
+			Labels: map[string]string{
+				"amd.com/gpu.product": "AMD Radeon 890M",
+				"amd.com/gpu.count":   "1",
+				"amd.com/gpu.memory":  "65536",
+				"amd.com/gpu.arch":    "gfx1150",
+			},
+		},
+	}
+
+	got, err := GetGPUConfigFromNodeLabelsForProvider(node, GPUProviderAMD)
+	assert.NoError(t, err)
+	assert.Equal(t, "amd", got.GPUVendor)
+	assert.Equal(t, "amd.com/gpu", got.GPUResourceName)
+	assert.Equal(t, 1, got.GPUCount)
+	assert.Equal(t, "AMD Radeon 890M", got.GPUModel)
+	assert.Equal(t, resource.MustParse("64Gi"), got.GPUMem)
+	assert.Equal(t, "gfx1150", got.GPUArchitecture)
+}
+
+func TestGetGPUConfigFromNodeLabelsRejectsMissingAMDLabels(t *testing.T) {
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "amd-node"}}
+	_, err := GetGPUConfigFromNodeLabelsForProvider(node, GPUProviderAMD)
+	assert.Error(t, err)
+}
+
 func TestGetGPUConfigFromNvidiaLabels(t *testing.T) {
 	tests := []struct {
 		name     string

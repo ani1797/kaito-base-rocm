@@ -85,11 +85,15 @@ var (
 )
 
 func defaultTolerations(ws *v1beta1.Workspace) []corev1.Toleration {
+	resourceName := nodes.CapacityNvidiaGPU
+	if ws != nil && ws.Labels != nil && ws.Labels["kaito.sh/gpu-provider"] == "amd" {
+		resourceName = "amd.com/gpu"
+	}
 	tolerations := []corev1.Toleration{
 		{
 			Effect:   corev1.TaintEffectNoSchedule,
 			Operator: corev1.TolerationOpExists,
-			Key:      nodes.CapacityNvidiaGPU,
+			Key:      resourceName,
 		},
 		{
 			Effect:   corev1.TaintEffectNoSchedule,
@@ -97,6 +101,14 @@ func defaultTolerations(ws *v1beta1.Workspace) []corev1.Toleration {
 			Key:      consts.SKUString,
 			Operator: corev1.TolerationOpEqual,
 		},
+	}
+	if resourceName == "amd.com/gpu" {
+		tolerations = append(tolerations, corev1.Toleration{
+			Effect:   corev1.TaintEffectNoSchedule,
+			Key:      "gpu",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "amd",
+		})
 	}
 
 	if sku.IsAzureCloudProvider() {
@@ -508,12 +520,16 @@ func GenerateInferencePodSpec(gpuConfig *sku.GPUConfig, numNodes int, streamingM
 			})
 		}
 		// resource requirements
+		resourceName := nodes.CapacityNvidiaGPU
+		if gpuConfig.GPUResourceName != "" {
+			resourceName = gpuConfig.GPUResourceName
+		}
 		resourceReq := corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName(nodes.CapacityNvidiaGPU): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
+				corev1.ResourceName(resourceName): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
 			},
 			Limits: corev1.ResourceList{
-				corev1.ResourceName(nodes.CapacityNvidiaGPU): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
+				corev1.ResourceName(resourceName): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
 			},
 		}
 

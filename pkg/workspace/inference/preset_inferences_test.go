@@ -1400,7 +1400,9 @@ func TestSetModelDownloadInfo(t *testing.T) {
 func TestDefaultTolerations(t *testing.T) {
 	testcases := map[string]struct {
 		cloudProvider string
+		gpuProvider   string
 		expectSpot    bool
+		expectAMD     bool
 	}{
 		"azure includes spot toleration": {
 			cloudProvider: consts.AzureCloudName,
@@ -1410,25 +1412,39 @@ func TestDefaultTolerations(t *testing.T) {
 			cloudProvider: consts.AWSCloudName,
 			expectSpot:    false,
 		},
+		"amd includes amd resource and taint tolerations": {
+			cloudProvider: consts.ArcCloudName,
+			gpuProvider:   "amd",
+			expectAMD:     true,
+		},
 	}
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv("CLOUD_PROVIDER", tc.cloudProvider)
 
+			labels := map[string]string{}
+			if tc.gpuProvider != "" {
+				labels["kaito.sh/gpu-provider"] = tc.gpuProvider
+			}
 			actual := defaultTolerations(&v1beta1.Workspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-workspace"},
+				ObjectMeta: metav1.ObjectMeta{Name: "test-workspace", Labels: labels},
 			})
 			hasSpot := false
+			hasAMD := false
 			for _, toleration := range actual {
 				if toleration.Key == consts.SpotInstanceKey && toleration.Value == consts.SpotInstanceValue {
 					hasSpot = true
-					break
+				}
+				if toleration.Key == "amd.com/gpu" || (toleration.Key == "gpu" && toleration.Value == "amd") {
+					hasAMD = true
 				}
 			}
-
 			if hasSpot != tc.expectSpot {
 				t.Fatalf("spot toleration presence = %v, want %v", hasSpot, tc.expectSpot)
+			}
+			if hasAMD != tc.expectAMD {
+				t.Fatalf("AMD toleration presence = %v, want %v", hasAMD, tc.expectAMD)
 			}
 		})
 	}

@@ -27,11 +27,21 @@ type CloudSKUHandler interface {
 	GetGPUConfigBySKU(sku string) *GPUConfig
 }
 
+type GPUProvider string
+
+const (
+	GPUProviderNvidia GPUProvider = "nvidia"
+	GPUProviderAMD    GPUProvider = "amd"
+)
+
 type GPUConfig struct {
 	SKU                   string
 	GPUCount              int
 	GPUMem                resource.Quantity
 	GPUModel              string
+	GPUVendor             string
+	GPUResourceName       string
+	GPUArchitecture       string
 	NVMeDiskEnabled       bool
 	CUDAComputeCapability float64 // CUDA compute capability version (e.g., 7.5 for Turing, 8.0 for Ampere)
 }
