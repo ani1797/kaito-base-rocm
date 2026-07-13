@@ -1,0 +1,48 @@
+name: Package and publish AMD KAITO Helm chart
+
+on:
+  workflow_dispatch:
+    inputs:
+      chart_tag:
+        description: "Chart version/tag"
+        required: true
+        default: "amd-rocm-poc"
+  push:
+    branches: [main]
+    paths:
+      - "charts/kaito/workspace/**"
+      - ".github/workflows/publish-amd-chart.yml"
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.4
+      - name: Set chart version
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            tag="${{ inputs.chart_tag }}"
+          else
+            tag="amd-rocm-${GITHUB_SHA::12}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+      - name: Prepare chart
+        run: |
+          mkdir -p /tmp/chart
+          cp -a charts/kaito/workspace /tmp/chart/workspace
+          sed -i -E "s/^version: .*/version: 0.11.0-${{ steps.meta.outputs.tag }}/; s/^appVersion: .*/appVersion: ${{ steps.meta.outputs.tag }}/" /tmp/chart/workspace/Chart.yaml
+          helm dependency build /tmp/chart/workspace
+          helm lint /tmp/chart/workspace
+          helm package /tmp/chart/workspace --destination /tmp/chart
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Publish chart
+        run: helm push /tmp/chart/workspace-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
