@@ -123,6 +123,13 @@ func defaultTolerations(ws *v1beta1.Workspace) []corev1.Toleration {
 	return tolerations
 }
 
+func gpuProviderForWorkspace(ws *v1beta1.Workspace) sku.GPUProvider {
+	if ws != nil && ws.Labels != nil && ws.Labels["kaito.sh/gpu-provider"] == "amd" {
+		return sku.GPUProviderAMD
+	}
+	return sku.GPUProviderNvidia
+}
+
 func GetInferenceImageInfo(ctx context.Context, workspaceObj *v1beta1.Workspace) []corev1.LocalObjectReference {
 	imagePullSecretRefs := []corev1.LocalObjectReference{}
 	// Check if the workspace preset's access mode is private
@@ -282,7 +289,7 @@ func getGPUConfig(ctx *generator.WorkspaceGeneratorContext) (*sku.GPUConfig, err
 			return nil, fmt.Errorf("no ready nodes found matching the workspace's label selector")
 		}
 
-		return sku.GetGPUConfigFromNodeLabels(readyNodes[0])
+		return sku.GetGPUConfigFromNodeLabelsForProvider(readyNodes[0], gpuProviderForWorkspace(ctx.Workspace))
 	} else {
 		// NAP is enabled - try to get GPU config from known SKU
 		gpuConfig, err := sku.GetGPUConfigBySKU(ctx.Workspace.Resource.InstanceType)
