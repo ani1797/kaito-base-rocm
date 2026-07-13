@@ -55,6 +55,7 @@ spec:
             - --default-node-image-family={{ .Values.defaultNodeImageFamily }}
             {{- end }}
             - --node-provisioner={{ .Values.nodeProvisioner }}
+            - --gpu-provider={{ .Values.gpuProvider }}
             {{- if eq .Values.nodeProvisioner "karpenter" }}
             {{- $provider := index .Values.karpenterProviders .Values.karpenterProvider }}
             - --karpenter-node-class-group={{ $provider.group }}
@@ -77,6 +78,8 @@ spec:
               value: {{ .Values.presetRegistryName | quote }}
             - name: CLOUD_PROVIDER
               value: {{ .Values.cloudProviderName | quote }}
+            - name: KAITO_RUNTIME_IMAGE
+              value: {{ .Values.runtimeImage | quote }}
             - name: CLUSTER_NAME
               value: {{ .Values.clusterName | quote }}
           ports:

@@ -53,6 +53,11 @@ modelMirrorDownloadCPU: ""
 modelMirrorDownloadMemory: ""
 defaultNodeImageFamily: ""
 nodeProvisioner: "azure-gpu-provisioner"
+gpuProvider: nvidia
+# `runtimeImage` is the main inference container image override. It is passed
+# through KAITO_RUNTIME_IMAGE and is intentionally empty by default, preserving
+# the embedded preset image. Use a pinned ROCm image for AMD experiments.
+runtimeImage: ""
 karpenterProvider: "azure"
 karpenterProviders:
   azure:
