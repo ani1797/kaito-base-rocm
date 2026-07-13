@@ -45,6 +45,10 @@ GPU_PROVISIONER_NAMESPACE ?= gpu-provisioner
 GPU_PROVISIONER_NAME ?= gpu-provisioner
 KAITO_NAMESPACE ?= kaito-workspace
 KAITO_RAGENGINE_NAMESPACE ?= kaito-ragengine
+KAITO_ROCM_BASE_IMAGE ?= docker.io/rocm/vllm-dev@sha256:89b2e1b1668074b06f59ec52adaca16c58735f3eb4c86a51a4af58d2c94933b8
+KAITO_ROCM_IMAGE_NAME ?= kaito-base-rocm
+KAITO_ROCM_IMAGE_TAG ?= amd-rocm-poc
+VLLM_VERSION ?= 0.22.1
 GPU_PROVISIONER_MSI_NAME ?= gpuprovisionerIdentity
 
 ## Azure Karpenter parameters
@@ -341,6 +345,22 @@ docker-build-kaito-base: docker-buildx ## Build Docker image for KAITO base.
         --pull \
 		$(BUILD_FLAGS) \
         --tag $(REGISTRY)/$(KAITO_BASE_IMG_NAME):$(KAITO_BASE_IMG_TAG) .
+
+.PHONY: docker-build-kaito-base-rocm
+docker-build-kaito-base-rocm: docker-buildx ## Build the AMD/ROCm KAITO base image.
+	docker buildx build \
+		--build-arg VERSION=$(KAITO_ROCM_IMAGE_TAG) \
+		--build-arg MODEL_TYPE=text-generation \
+		--build-arg GPU_PROVIDER=amd \
+		--build-arg ROCM_VERSION=7.1 \
+		--build-arg RUNTIME_BASE_IMAGE=$(KAITO_ROCM_BASE_IMAGE) \
+		--build-arg VLLM_VERSION=$(VLLM_VERSION) \
+		--platform="linux/$(ARCH)" \
+		--output=$(OUTPUT_TYPE) \
+		--file ./docker/presets/models/tfs/Dockerfile \
+		--pull \
+		$(BUILD_FLAGS) \
+		--tag $(REGISTRY)/$(KAITO_ROCM_IMAGE_NAME):$(KAITO_ROCM_IMAGE_TAG) .
 
 .PHONY: docker-build-ragservice
 docker-build-ragservice: docker-buildx ## Build Docker image for RAG Engine service.
