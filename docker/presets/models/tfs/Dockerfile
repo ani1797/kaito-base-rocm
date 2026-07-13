@@ -8,6 +8,8 @@ ARG MODEL_TYPE
 ARG VERSION
 ARG GPU_PROVIDER=nvidia
 ARG ROCM_VERSION=7.1
+ARG DEPENDENCIES_FILE=presets/workspace/dependencies/requirements.txt
+ARG VLLM_VERSION=0.22.1
 
 
 # https://docs.ray.io/en/latest/cluster/usage-stats.html
@@ -34,14 +36,15 @@ FROM dependencies AS base
 
 ARG UV_VERSION=0.10.10
 
-COPY presets/workspace/dependencies/requirements.txt /workspace/requirements.txt
+COPY ${DEPENDENCIES_FILE} /workspace/requirements.txt
+COPY presets/workspace/dependencies/requirements-rocm.txt /workspace/requirements-rocm.txt
 
 # Install the CUDA stack for NVIDIA. AMD builds must use a separate
 # ROCm requirements/install path; do not retag this CUDA image.
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --no-cache-dir "uv==${UV_VERSION}" && \
     if [ "${GPU_PROVIDER}" = "amd" ]; then \
-      uv pip install --system -q -r /workspace/requirements.txt; \
+      uv pip install --system -q -r /workspace/requirements-rocm.txt; \
     else \
       VLLM_VERSION=$(grep 'vllm==' /workspace/requirements.txt | cut -d'=' -f3 | tr -d ' ') && \
       LMCACHE_VERSION=$(grep 'lmcache==' /workspace/requirements.txt | cut -d'=' -f3 | tr -d ' ') && \
@@ -70,8 +73,7 @@ COPY presets/workspace/inference/vllm/inference_api.py \
     presets/workspace/inference/vllm/benchmark_entrypoint.py \
     /workspace/vllm/
 
-RUN VLLM_VERSION=$(grep 'vllm==' /workspace/requirements.txt | cut -d'=' -f3) && \
-    curl --fail -o /workspace/vllm/multi-node-serving.sh \
+RUN curl --fail -o /workspace/vllm/multi-node-serving.sh \
     https://raw.githubusercontent.com/vllm-project/vllm/refs/tags/v${VLLM_VERSION}/examples/ray_serving/multi-node-serving.sh && \
     chmod +x /workspace/vllm/multi-node-serving.sh
 
