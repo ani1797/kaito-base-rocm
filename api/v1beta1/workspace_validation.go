@@ -478,7 +478,7 @@ func (r *ResourceSpec) validateCreateWithInference(ctx context.Context, inferenc
 
 			for _, node := range nodeList.Items {
 				// Try to get GPU configuration from nvidia.com labels first
-				gpuConfig, err := sku.GetGPUConfigFromNodeLabelsForProvider(&node, gpuProviderFromLabels(r.LabelSelector.MatchLabels))
+				gpuConfig, err := sku.GetGPUConfigFromNodeLabelsForProvider(&node, sku.GPUProviderFromEnvironment())
 				if err != nil {
 					errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("Failed to get GPU config from %s labels on node %s: %v", gpuProviderFromLabels(r.LabelSelector.MatchLabels), node.Name, err)))
 					return errs

@@ -98,7 +98,7 @@ func (c *NodeEstimator) EstimateNodeCount(ctx context.Context, req estimator.Nod
 		if len(readyNodes) == 0 {
 			return 0, fmt.Errorf("no ready nodes found, unable to determine GPU configuration")
 		}
-		gpuConfig, err = sku.GetGPUConfigFromNodeLabels(readyNodes[0])
+		gpuConfig, err = sku.GetGPUConfigFromNodeLabelsForProvider(readyNodes[0], sku.GPUProviderFromEnvironment())
 		if err != nil {
 			return 0, fmt.Errorf("failed to get GPU config from existing nodes: %w", err)
 		}
