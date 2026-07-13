@@ -24,7 +24,10 @@ from pathlib import Path
 from typing import Any
 
 import psutil
-import pynvml
+try:
+    import pynvml
+except ImportError:  # ROCm images do not provide NVML.
+    pynvml = None
 import uvloop
 import vllm.entrypoints.openai.api_server as api_server
 import yaml
@@ -421,26 +424,28 @@ def load_lora_adapters(adapters_dir: str) -> LoRAModulePath | None:
     return lora_list
 
 
+# AMD/ROCm runtime images do not provide NVML. The default is retained for
+# NVIDIA, while AMD uses the explicit GPU memory budget supplied by the
+# cluster/operator and lets vLLM manage its own cache sizing.
+
 def get_max_gpu_memory_utilization(device_index: int = 0) -> float:
+    if os.environ.get("GPU_PROVIDER", "nvidia").lower() != "amd" and pynvml is None:
+        raise RuntimeError("pynvml is required for NVIDIA runtime image")
+    if os.environ.get("GPU_PROVIDER", "nvidia").lower() == "amd":
+        configured = os.environ.get("KAITO_GPU_MEMORY_UTILIZATION", "0.84")
+        return float(configured)
+
     # Calculate gpu_memory_utilization based on available GPU memory.
     # This ensures vLLM only uses currently free memory to avoid OOM errors.
-    # See https://github.com/kaito-project/kaito/issues/1374.
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
     info = pynvml.nvmlDeviceGetMemoryInfo(handle)
     pynvml.nvmlShutdown()
 
-    # Reserve an additional 600MiB for pytorch memory fragments, calculated based on profiling
+    # Reserve an additional 600MiB for pytorch memory fragments.
     free_memory = info.free - 600 * 1024**2
-
-    # Floor to 2 decimal places
     gpu_memory_utilization = (free_memory * 100 // info.total) / 100
-
-    # The value is capped at 0.95 to maintain compatibility with previous behavior
-    gpu_memory_utilization = min(0.95, gpu_memory_utilization)
-
-    logger.info(f"Set default gpu_memory_utilization to {gpu_memory_utilization}")
-    return gpu_memory_utilization
+    return min(0.95, gpu_memory_utilization)
 
 
 def set_kv_transfer_config_if_applicable(args: argparse.Namespace) -> None:

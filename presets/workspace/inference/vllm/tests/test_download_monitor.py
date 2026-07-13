@@ -67,7 +67,12 @@ from inference_api import (  # noqa: E402
 MB = 1024**2
 
 
-# ── _hf_model_total_bytes ─────────────────────────────────────────────────────
+def test_amd_memory_utilization_does_not_require_nvml():
+    with patch.dict("os.environ", {"GPU_PROVIDER": "amd", "KAITO_GPU_MEMORY_UTILIZATION": "0.38"}):
+        with patch.object(inference_api.pynvml, "nvmlInit", side_effect=AssertionError("NVML must not be used for AMD")):
+            assert inference_api.get_max_gpu_memory_utilization() == 0.38
+
+
 class TestHfModelTotalBytes:
     def _fs_entry(self, size, name="file.bin"):
         return {"type": "file", "name": f"org/model/{name}", "size": size}

@@ -1,8 +1,14 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim AS dependencies
+# Runtime base image is selected by the image builder. The default remains
+# CUDA/NVIDIA; AMD builds must pass a ROCm base image explicitly.
+ARG RUNTIME_BASE_IMAGE=python:3.12-slim
+FROM ${RUNTIME_BASE_IMAGE} AS dependencies
 
 ARG MODEL_TYPE
 ARG VERSION
+ARG GPU_PROVIDER=nvidia
+ARG ROCM_VERSION=7.1
+
 
 # https://docs.ray.io/en/latest/cluster/usage-stats.html
 ENV RAY_USAGE_STATS_ENABLED="1"
@@ -30,23 +36,22 @@ ARG UV_VERSION=0.10.10
 
 COPY presets/workspace/dependencies/requirements.txt /workspace/requirements.txt
 
-# Install the CUDA 12.9 build of the stack (vLLM, torch, LMCache) instead of the
-# default CUDA 13 wheels, because CUDA 13 requires 580+ Nvidia GPU drivers.
+# Install the CUDA stack for NVIDIA. AMD builds must use a separate
+# ROCm requirements/install path; do not retag this CUDA image.
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --no-cache-dir "uv==${UV_VERSION}" && \
-    VLLM_VERSION=$(grep 'vllm==' /workspace/requirements.txt | cut -d'=' -f3 | tr -d ' ') && \
-    LMCACHE_VERSION=$(grep 'lmcache==' /workspace/requirements.txt | cut -d'=' -f3 | tr -d ' ') && \
-    uv pip install --system -q -r /workspace/requirements.txt \
+    if [ "${GPU_PROVIDER}" = "amd" ]; then \
+      uv pip install --system -q -r /workspace/requirements.txt; \
+    else \
+      VLLM_VERSION=$(grep 'vllm==' /workspace/requirements.txt | cut -d'=' -f3 | tr -d ' ') && \
+      LMCACHE_VERSION=$(grep 'lmcache==' /workspace/requirements.txt | cut -d'=' -f3 | tr -d ' ') && \
+      uv pip install --system -q -r /workspace/requirements.txt \
         --torch-backend=cu129 \
         --index-strategy unsafe-best-match \
         --extra-index-url "https://wheels.vllm.ai/${VLLM_VERSION}/cu129" \
         --extra-index-url https://download.pytorch.org/whl/cu129 \
-        --find-links "https://github.com/LMCache/LMCache/releases/expanded_assets/v${LMCACHE_VERSION}-cu129" && \
-    : "LMCache depends on the 'nixl' meta package which installs BOTH nixl-cu12 and" \
-      "nixl-cu13; they ship the same nixl_ep_cpp .so (last writer wins) and nixl-cu13" \
-      "links libcudart.so.13 which is absent on this CUDA 12.9 image. Reinstall nixl-cu12" \
-      "last so its cu12 .so wins, otherwise 'import nixl_ep' fails with libcudart.so.13 not found." && \
-    uv pip install --system -q --reinstall-package nixl-cu12 nixl-cu12 && \
+        --find-links "https://github.com/LMCache/LMCache/releases/expanded_assets/v${LMCACHE_VERSION}-cu129"; \
+    fi && \
     pip3 uninstall -y uv
 
 # 1. Huggingface transformers

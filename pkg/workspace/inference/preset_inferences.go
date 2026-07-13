@@ -643,6 +643,12 @@ func GenerateInferencePodSpec(gpuConfig *sku.GPUConfig, numNodes int, streamingM
 					Value: "0",
 				})
 			}
+			if gpuConfig.GPUVendor == string(sku.GPUProviderAMD) {
+				mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{
+					Name:  "GPU_PROVIDER",
+					Value: string(sku.GPUProviderAMD),
+				})
+			}
 		}
 
 		spec.Containers = []corev1.Container{
