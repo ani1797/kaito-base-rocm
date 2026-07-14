@@ -111,6 +111,7 @@ Gemma3nForCausalLM
 Gemma3nForConditionalGeneration
 Gemma4ForCausalLM
 Gemma4ForConditionalGeneration
+Gemma4UnifiedForConditionalGeneration
 Gemma4MTPModel
 GemmaForCausalLM
 Glm4ForCausalLM
