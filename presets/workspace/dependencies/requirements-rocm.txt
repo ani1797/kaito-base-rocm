@@ -3,7 +3,7 @@
 # The base image supplies ROCm PyTorch and vLLM. Do not add torch, vllm,
 # nvidia-ml-py3, bitsandbytes, or CUDA-only wheels here: installing those
 # packages would replace the ROCm runtime or fail during image construction.
-transformers[serving] ==5.6.0
+transformers[serving] ==5.10.1
 huggingface-hub==1.11.0
 accelerate>=1.4.0
 fastapi[standard] >=0.115.0,<0.137.0
