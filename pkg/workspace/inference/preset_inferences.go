@@ -535,13 +535,40 @@ func GenerateInferencePodSpec(gpuConfig *sku.GPUConfig, numNodes int, streamingM
 		if gpuConfig.GPUResourceName != "" {
 			resourceName = gpuConfig.GPUResourceName
 		}
-		resourceReq := corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName(resourceName): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceName(resourceName): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
-			},
+		sharedAMD := gpuConfig.GPUVendor == string(sku.GPUProviderAMD) &&
+			ctx.Workspace.Labels["kaito.sh/shared-gpu"] == "true"
+		resourceReq := corev1.ResourceRequirements{}
+		var containerSecurityContext *corev1.SecurityContext
+		if !sharedAMD {
+			resourceReq = corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(resourceName): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceName(resourceName): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
+				},
+			}
+		}
+		if sharedAMD {
+			// The AMD device plugin advertises one exclusive resource and has no
+			// time-slicing mode. Shared UMA workloads access ROCm directly through
+			// the device nodes and are isolated by vLLM memory settings instead.
+			containerSecurityContext = &corev1.SecurityContext{Privileged: ptr.To(true)}
+			spec.SecurityContext = &corev1.PodSecurityContext{
+				SupplementalGroups: []int64{44, 993},
+			}
+			spec.Volumes = append(volumes,
+				corev1.Volume{Name: "dev-kfd", VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{Path: "/dev/kfd", Type: ptr.To(corev1.HostPathCharDev)},
+				}},
+				corev1.Volume{Name: "dev-dri", VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{Path: "/dev/dri", Type: ptr.To(corev1.HostPathDirectory)},
+				}},
+			)
+			volumeMounts = append(volumeMounts,
+				corev1.VolumeMount{Name: "dev-kfd", MountPath: "/dev/kfd"},
+				corev1.VolumeMount{Name: "dev-dri", MountPath: "/dev/dri"},
+			)
 		}
 
 		// inference command
@@ -653,16 +680,17 @@ func GenerateInferencePodSpec(gpuConfig *sku.GPUConfig, numNodes int, streamingM
 
 		spec.Containers = []corev1.Container{
 			{
-				Name:           ctx.Workspace.Name,
-				Image:          GetBaseImageName(),
-				Command:        commands,
-				Resources:      resourceReq,
-				Ports:          append([]corev1.ContainerPort(nil), containerPorts...),
-				StartupProbe:   buildStartupProbe(readinessTimeout, vllmPort),
-				LivenessProbe:  buildProbeWithPort(defaultLivenessProbe, vllmPort),
-				ReadinessProbe: buildProbeWithPort(defaultReadinessProbe, vllmPort),
-				VolumeMounts:   volumeMounts,
-				Env:            mainContainerEnv,
+				Name:            ctx.Workspace.Name,
+				Image:           GetBaseImageName(),
+				Command:         commands,
+				Resources:       resourceReq,
+				SecurityContext: containerSecurityContext,
+				Ports:           append([]corev1.ContainerPort(nil), containerPorts...),
+				StartupProbe:    buildStartupProbe(readinessTimeout, vllmPort),
+				LivenessProbe:   buildProbeWithPort(defaultLivenessProbe, vllmPort),
+				ReadinessProbe:  buildProbeWithPort(defaultReadinessProbe, vllmPort),
+				VolumeMounts:    volumeMounts,
+				Env:             mainContainerEnv,
 			},
 		}
 
@@ -673,7 +701,9 @@ func GenerateInferencePodSpec(gpuConfig *sku.GPUConfig, numNodes int, streamingM
 		}
 
 		spec.Tolerations = defaultTolerations(ctx.Workspace)
-		spec.Volumes = volumes
+		if !sharedAMD {
+			spec.Volumes = volumes
+		}
 
 		return nil
 	}
