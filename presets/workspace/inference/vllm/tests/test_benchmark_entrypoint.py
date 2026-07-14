@@ -165,6 +165,15 @@ def test_compute_max_concurrency_success():
         assert bm._compute_max_concurrency() == 55
 
 
+def test_compute_max_concurrency_amd_cap():
+    """AMD startup benchmarks cap saturation concurrency for reliable draining."""
+    resp = _make_urlopen_response(200, _CACHE_CONFIG_METRICS_BODY)
+    with patch("urllib.request.urlopen", return_value=resp), patch.dict(
+        bm.os.environ, {"GPU_PROVIDER": "amd"}, clear=False
+    ):
+        assert bm._compute_max_concurrency() == 16
+
+
 def test_compute_max_concurrency_metric_absent():
     """Raises RuntimeError when vllm:cache_config_info line is not in /metrics."""
     body = b"vllm:some_other_metric{} 1.0\n"
