@@ -8,6 +8,8 @@ All models were deployed as KAITO Workspace CRs on AKS and evaluated using the v
 
 ## Scores
 
+Experimental entries may be listed with `pending` until they have been deployed and measured; these are not benchmark results.
+
 | Model | Runtime | Overall | Writing | Roleplay | Reasoning | Math | Coding | Extraction | STEM | Humanities | Date |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | microsoft/Phi-3-mini-4k-instruct | vllm | 6.23 | 6.70 | 6.65 | 4.85 | 6.35 | 5.75 | 6.65 | 6.30 | 6.60 | 2026-04-20 |
@@ -46,6 +48,7 @@ All models were deployed as KAITO Workspace CRs on AKS and evaluated using the v
 | google/gemma-4-26B-A4B-it | vllm | 8.49 | 8.30 | 8.50 | 8.80 | 10.00 | 8.25 | 8.20 | 8.05 | 7.85 | 2026-05-04 |
 | google/gemma-4-E4B-it | vllm | 7.88 | 8.00 | 8.25 | 8.00 | 9.45 | 7.00 | 8.10 | 7.10 | 7.10 | 2026-05-04 |
 | google/gemma-4-E2B-it | vllm | 7.30 | 7.50 | 7.25 | 6.50 | 9.45 | 6.35 | 7.95 | 6.60 | 6.80 | 2026-05-04 |
+| google/gemma-4-E4B-it-qat-w4a16-ct | experimental | pending | pending | pending | pending | pending | pending | pending | pending | pending | pending |
 | mistralai/Mistral-Small-4-119B-2603 | vllm | 7.74 | 7.95 | 7.85 | 7.90 | 9.85 | 7.20 | 7.80 | 6.50 | 6.90 | 2026-05-06 |
 | mistralai/Mistral-Small-4-119B-2603-NVFP4 | vllm | 7.58 | 7.85 | 7.50 | 7.80 | 9.40 | 7.15 | 7.25 | 6.60 | 7.10 | 2026-05-06 |
 | Qwen/Qwen3.5-2B | vllm | 5.44 | 6.20 | 5.40 | 4.70 | 7.45 | 4.70 | 5.75 | 5.05 | 4.25 | 2026-05-07 |

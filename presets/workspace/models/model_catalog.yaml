@@ -738,3 +738,19 @@ models:
   configFormat: mistral
   tokenizerMode: mistral
   quantMethod: fp8
+- name: google/gemma-4-E4B-it-qat-w4a16-ct
+  description: https://huggingface.co/google/gemma-4-E4B-it-qat-w4a16-ct
+  license: apache-2.0
+  pipelineTag: any-to-any
+  baseModel:
+  - google/gemma-4-E4B-it-qat-q4_0-unquantized
+  modelFileSize: 10.72Gi
+  architectures:
+  - Gemma4ForConditionalGeneration
+  modelTokenLimit: 131072
+  hiddenSize: 2560
+  numHiddenLayers: 42
+  numAttentionHeads: 8
+  numKeyValueHeads: 2
+  headDim: 256
+  quantMethod: pack-quantized
