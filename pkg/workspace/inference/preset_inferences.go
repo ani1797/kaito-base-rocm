@@ -675,6 +675,15 @@ func GenerateInferencePodSpec(gpuConfig *sku.GPUConfig, numNodes int, streamingM
 					Name:  "GPU_PROVIDER",
 					Value: string(sku.GPUProviderAMD),
 				})
+				// On shared AMD/UMA GPUs (multiple workspaces on one node) the
+				// startup benchmark runs concurrently across all pods.  Keep
+				// concurrency=1 so the drain phase completes within the timeout.
+				if sharedAMD {
+					mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{
+						Name:  "KAITO_AMD_BENCHMARK_MAX_CONCURRENCY",
+						Value: "1",
+					})
+				}
 			}
 		}
 
