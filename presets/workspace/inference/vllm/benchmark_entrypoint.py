@@ -206,7 +206,7 @@ def _compute_max_concurrency(processor: str | None = None) -> int:
         # Saturation concurrency is useful for capacity benchmarking, but it can
         # prevent the startup probe from draining on a shared/UMA AMD GPU. Keep
         # the AMD default conservative while allowing explicit tuning.
-        amd_cap = int(os.environ.get("KAITO_AMD_BENCHMARK_MAX_CONCURRENCY", "16"))
+        amd_cap = int(os.environ.get("KAITO_AMD_BENCHMARK_MAX_CONCURRENCY", "4"))
         concurrency = min(concurrency, amd_cap)
     return concurrency
 

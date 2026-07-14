@@ -63,6 +63,34 @@ kaito_model_download_remaining_seconds = Gauge(
 )
 
 
+def _override_vllm_arg(runtime_args: list[str], key: str, value: Any) -> list[str]:
+    """Replace CLI occurrences of a vLLM option with the config-file value.
+
+    KAITO adds a few defaults (notably ``--max-model-len=auto``) before the
+    user-supplied ConfigMap is merged. Removing the earlier spelling avoids
+    vLLM's duplicate-key warning while preserving the documented precedence:
+    inference_config.yaml wins over generated CLI defaults.
+    """
+    option = f"--{key}"
+    option_normalized = option.replace("_", "-")
+    result: list[str] = []
+    i = 0
+    while i < len(runtime_args):
+        arg = runtime_args[i]
+        arg_name = arg.split("=", 1)[0].replace("_", "-")
+        if arg_name == option_normalized:
+            i += 1
+            if "=" not in arg and i < len(runtime_args):
+                next_arg = runtime_args[i]
+                if not next_arg.startswith("--"):
+                    i += 1
+            continue
+        result.append(arg)
+        i += 1
+    result.extend((option, str(value)))
+    return result
+
+
 class KAITOArgumentParser(argparse.ArgumentParser):
     vllm_parser = FlexibleArgumentParser(description="vLLM serving server")
 
@@ -137,8 +165,7 @@ class KAITOArgumentParser(argparse.ArgumentParser):
                 )
 
             for key, value in file_config.vllm.items():
-                runtime_args.append(f"--{key}")
-                runtime_args.append(str(value))
+                runtime_args = _override_vllm_arg(runtime_args, key, value)
 
         # Apply CLI default only after file-config merging so the YAML can
         # override an unspecified CLI value.

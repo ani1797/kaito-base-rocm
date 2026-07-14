@@ -171,7 +171,18 @@ def test_compute_max_concurrency_amd_cap():
     with patch("urllib.request.urlopen", return_value=resp), patch.dict(
         bm.os.environ, {"GPU_PROVIDER": "amd"}, clear=False
     ):
-        assert bm._compute_max_concurrency() == 16
+        assert bm._compute_max_concurrency() == 4
+
+
+def test_compute_max_concurrency_amd_explicit_cap():
+    """The AMD benchmark cap remains explicitly tunable for capacity tests."""
+    resp = _make_urlopen_response(200, _CACHE_CONFIG_METRICS_BODY)
+    with patch("urllib.request.urlopen", return_value=resp), patch.dict(
+        bm.os.environ,
+        {"GPU_PROVIDER": "amd", "KAITO_AMD_BENCHMARK_MAX_CONCURRENCY": "7"},
+        clear=False,
+    ):
+        assert bm._compute_max_concurrency() == 7
 
 
 def test_compute_max_concurrency_metric_absent():
